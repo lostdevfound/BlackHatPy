@@ -2,8 +2,9 @@ import socket
 import sys
 import threading
 from select import select
+import types
 
-#
+
 class Sockets(object):
     """A base class to send and recv data"""
     def __init__(self):
@@ -144,7 +145,7 @@ class Server(Sockets):
         handler parameter defines server behavior when a cient connects
         to the server
         """
-        if not isinstance(handler, method):
+        if not isinstance(handler, types.MethodType):
             raise TypeError('The parameter should be a method type')
 
         self.server.bind((self.ipAddr, self.port))
