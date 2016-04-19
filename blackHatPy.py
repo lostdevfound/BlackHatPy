@@ -3,6 +3,7 @@ import sys
 import threading
 from select import select
 import types
+import subprocess
 
 
 
@@ -141,12 +142,11 @@ class Server(Sockets):
         self.passowrd = password
 
 
-    def listen(self, handler):
-        """ Start listening for incoming connections.
-        handler parameter defines server behavior when a cient connects
-        to the server
+    def listen(self, behavior):
+        """ Start listening for incoming connections. handler
+        parameter defines server behavior when a client connects to the server
         """
-        if not isinstance(handler, types.MethodType):
+        if not isinstance(behavior, types.MethodType) and not isinstance(behavior, types.FunctionType):
             raise TypeError('The parameter should be a method type')
 
         self.server.bind((self.ipAddr, self.port))
@@ -154,8 +154,8 @@ class Server(Sockets):
 
         while True:
             clientSocket, clientAddr = self.server.accept()
-            # Initiate the thread for the client socket
-            clientThread = threading.Thread(target=handler, args=(clientSocket, clientAddr))
+            # Initiate the thread for the client socket and pass a function or method to be executed
+            clientThread = threading.Thread(target=self.clientHandler, args=(clientSocket, clientAddr, behavior))
             # Start the thread
             clientThread.start()
 
@@ -163,7 +163,7 @@ class Server(Sockets):
         self.server.close()
 
 
-    def clientHandlerEcho(self, clientSocket, clientAddr):
+    def clientHandler(self, clientSocket, clientAddr, behavior):
         """One of the handler methods that simply echo client's messegaes"""
         # Authentication
         if not self.serverLogin(clientSocket):
@@ -181,11 +181,26 @@ class Server(Sockets):
 
             # Print data and keep talking or close connection
             if recvData:
-                print('Data from {}:'.format(clientAddr), recvData)
+                output = behavior(recvData)
+                print('executed:', output)
             else:
                 print('Connection with {} is closed'.format(clientAddr))
                 clientSocket.close()
                 return
+
+    @staticmethod
+    def execute(data):
+        """The method would run the incoming data. This method is passed
+        as an argument inside clientHander method
+        """
+        data = data.strip()
+
+        try:
+            output = subprocess.check_output(data, stderr=subprocess.STDOUT, shell=True).decode('utf-8')
+        except:
+            output = 'Failed to execute the command.'
+
+        return output
 
 
     def serverLogin(self, clientSocket):
