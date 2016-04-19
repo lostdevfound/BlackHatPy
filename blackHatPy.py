@@ -3,6 +3,7 @@ import sys
 import threading
 from select import select
 
+#
 class Sockets(object):
     """A base class to send and recv data"""
     def __init__(self):
@@ -138,15 +139,21 @@ class Server(Sockets):
         self.passowrd = password
 
 
-    def listen(self):
-        """ Start listening for incoming connections """
+    def listen(self, handler):
+        """ Start listening for incoming connections.
+        handler parameter defines server behavior when a cient connects
+        to the server
+        """
+        if not isinstance(handler, method):
+            raise TypeError('The parameter should be a method type')
+
         self.server.bind((self.ipAddr, self.port))
         self.server.listen(self.maxClients)
 
         while True:
             clientSocket, clientAddr = self.server.accept()
             # Initiate the thread for the client socket
-            clientThread = threading.Thread(target=self.clientHandler, args=(clientSocket, clientAddr))
+            clientThread = threading.Thread(target=handler, args=(clientSocket, clientAddr))
             # Start the thread
             clientThread.start()
 
@@ -154,23 +161,23 @@ class Server(Sockets):
         self.server.close()
 
 
-    def clientHandler(self, clientSocket, clientAddr):
-        """A method that handles a client connection"""
-
+    def clientHandlerEcho(self, clientSocket, clientAddr):
+        """One of the handler methods that simply echo client's messegaes"""
         # Authentication
         if not self.serverLogin(clientSocket):
             clientSocket.close()
             return
 
-        # Keep receiving data
+        # Keep talking data
         while True:
-            # Send prompt tag
+            # Send data
             dataSent = self.sendData(clientSocket, '$:')
             if not dataSent:
                 return
-
+            # Receive data
             recvData = self.recvData(clientSocket)
 
+            # Print data and keep talking or close connection
             if recvData:
                 print('Data from {}:'.format(clientAddr), recvData)
             else:
@@ -183,15 +190,12 @@ class Server(Sockets):
         """A simple authentication method. If no valid passwrod is provided
         The clientSocket will be closed
         """
-        try:
-            # Send a password request
-            clientSocket.send(b'password:')
-        except:
-            print('Could not send password')
-            return False
+        sentData = self.sendData(clientSocket, 'password:')
+        if not sentData:
+            clientSocket.close()
 
         # Receive a passwrod
-        password = clientSocket.recv(1024).decode('utf-8')
+        password = self.recvData(clientSocket)
 
         # Check if the password is valid
         if password.strip() == str(self.passowrd):
