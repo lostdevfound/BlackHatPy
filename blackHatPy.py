@@ -122,7 +122,7 @@ class Client(Sockets):
 
 class Server(Sockets):
     """Simpel server"""
-    def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, password=123456):
+    def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, password=123456, rhostAddr=None, rhostPort=None):
         if not isinstance(port, int):
             raise TypeError('The port parameter is an integer type')
 
@@ -140,13 +140,21 @@ class Server(Sockets):
         self.maxClients = maxClients
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.passowrd = password
+        # Proxy server optional attributes
+        self.rhostAddr = rhostAddr
+        self.rhostPort = rhostPort
 
 
-    def listen(self, behavior):
-        """ Start listening for incoming connections. handler
-        parameter defines server behavior when a client connects to the server
+    def listen(self, handler, behavior='None'):
+        """Start listening for incoming connections. handler
+        parameter sets the methods which the server will use when a client
+        connects to it. behavior parameter further specifies the behavior of
+        the handler
         """
-        if not isinstance(behavior, types.MethodType) and not isinstance(behavior, types.FunctionType):
+        if behavior != 'None':
+            if not isinstance(behavior, types.MethodType) and not isinstance(behavior, types.FunctionType):
+                raise TypeError('The parameter should be a method type')
+        if not isinstance(handler, types.MethodType) and not isinstance(behavior, types.FunctionType):
             raise TypeError('The parameter should be a method type')
 
         self.server.bind((self.ipAddr, self.port))
@@ -155,7 +163,7 @@ class Server(Sockets):
         while True:
             clientSocket, clientAddr = self.server.accept()
             # Initiate the thread for the client socket and pass a function or method to be executed
-            clientThread = threading.Thread(target=self.clientHandler, args=(clientSocket, clientAddr, behavior))
+            clientThread = threading.Thread(target=handler, args=(clientSocket, clientAddr, behavior))
             # Start the thread
             clientThread.start()
 
@@ -181,16 +189,40 @@ class Server(Sockets):
 
             # Print data and keep talking or close connection
             if recvData:
+                # Execute some kind of a command
                 output = behavior(recvData)
-                print('executed:', output)
+                print('[*]:', output)
             else:
                 print('Connection with {} is closed'.format(clientAddr))
                 clientSocket.close()
                 return
 
+
+    def proxyHandler(self, clientSocket, clientAddr, behavior=None):
+        # Initialize a new connection to a rhost
+        rhostSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        rhostSocket.connect((self.rhostAddr, self.rhostPort))
+
+        while True:
+            # Sent data to the client
+            dataSent = self.sendData(clientSocket, '=>:')
+            if not dataSent:
+                return
+
+            # Receive data from the client
+            recvData = self.recvData(clientSocket)
+            # Forward the data to the rhost
+            if recvData:
+                dataSent = self.sendData(rhostSocket, recvData)
+                print('data sent to rhost')
+            else:
+                print('No data recevied closing the connection with {}'.format(clientAddr))
+                return
+
+
     @staticmethod
     def execute(data):
-        """The method would run the incoming data. This method is passed
+        """The behavioral method that would execute the incoming data. This method is passed
         as an argument inside clientHander method
         """
         data = data.strip()
@@ -201,6 +233,9 @@ class Server(Sockets):
             output = 'Failed to execute the command.'
 
         return output
+
+
+
 
 
     def serverLogin(self, clientSocket):
