@@ -191,6 +191,7 @@ class Server(Sockets):
             if recvData:
                 # Execute some kind of a command
                 output = behavior(recvData)
+                self.sendData(clientSocket, output)
                 print('[*]:', output)
             else:
                 print('Connection with {} is closed'.format(clientAddr))
@@ -203,21 +204,34 @@ class Server(Sockets):
         rhostSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         rhostSocket.connect((self.rhostAddr, self.rhostPort))
 
-        while True:
-            # Sent data to the client
-            dataSent = self.sendData(clientSocket, '=>:')
-            if not dataSent:
-                return
+        readSockets = [rhostSocket, clientSocket]
+        writeSockets = [rhostSocket, clientSocket]
 
-            # Receive data from the client
-            recvData = self.recvData(clientSocket)
-            # Forward the data to the rhost
-            if recvData:
-                dataSent = self.sendData(rhostSocket, recvData)
-                print('data sent to rhost')
-            else:
-                print('No data recevied closing the connection with {}'.format(clientAddr))
-                return
+        while True:
+
+            readable, writable, exceptions = select(readSockets, writeSockets, [])
+
+            for sock in readable:
+                # If rhost is sending data
+                if sock == rhostSocket:
+                    # Receive from rhos
+                    recvData = self.recvData(sock)
+                    print ('Data from rhost:',  recvData)
+                    # Send data to the client
+                    dataSent = self.sendData(clientSocket, '=>'+ recvData)
+                    if not dataSent:
+                        return
+
+                elif sock == clientSocket:
+                    # Receive data from the client
+                    recvData = self.recvData(clientSocket)
+                    # Forward the data to the rhost
+                    if recvData:
+                        dataSent = self.sendData(rhostSocket, recvData)
+                        print('data sent to rhost: ', recvData)
+                    else:
+                        print('No data recevied closing the connection with {}'.format(clientAddr))
+                        return
 
 
     @staticmethod
