@@ -51,14 +51,15 @@ class Sockets(object):
 
 
 class Client(Sockets):
-    """A simple client socket."""
+    """A simple client on SSL."""
     def __init__(self, targetIP, port, serverName='bhserver'):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.targetIP = targetIP
         self.serverName = serverName
         self.port = port
         # SSL implementation
-        self.sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')
+        self.sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')   # load trusted cert
+        # Create an SSL socket and set server_hostname to the server name from the certificate
         self.client = self.sslContext.wrap_socket(self.client,  server_hostname=self.serverName)
 
 
@@ -118,7 +119,7 @@ class Client(Sockets):
 
 
 class Server(Sockets):
-    """Simpel server"""
+    """Simpel server with SSL sockets"""
     def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, password=123456, rhostAddr=None,
                 rhostPort=None, rhostServerName='bhserver'):
         if not isinstance(port, int):
@@ -138,7 +139,8 @@ class Server(Sockets):
         self.maxClients = maxClients
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # SSL implementation
-        self.sslContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self.sslContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)   # Create context for client auth
+        # Load server's certificate and its private key, the password to unpack pem file is 1234
         self.sslContext.load_cert_chain(certfile='ssl/cert.pem', keyfile='ssl/key.pem', password='1234')
         # Proxy server optional attributes
         self.rhostAddr = rhostAddr
@@ -257,7 +259,8 @@ class Server(Sockets):
 
     def serverLogin(self, clientSocket):
         """A simple authentication method. If no valid passwrod is provided
-        The clientSocket will be closed
+        The clientSocket will be closed. Since the server and the client objects
+        use SSL certs this method is deprecated.
         """
         sentData = self.sendData(clientSocket, 'password:')
         if not sentData:
