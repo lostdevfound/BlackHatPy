@@ -4,8 +4,9 @@ import threading
 from select import select
 import types
 import subprocess
+import ssl
 
-
+# openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 1
 
 class Sockets(object):
     """A base class to send and recv data"""
@@ -25,14 +26,15 @@ class Sockets(object):
         try:
             sock.send(bytedata)
             return True
-        except:
+        except Exception as e:
             print('Could not send bytedata')
+            print(e)
             sock.close()
             return False
 
 
     @staticmethod
-    def recvData(sock):
+    def recvData(sock, dataSize=1024):
         """Receive data"""
         if not isinstance(sock, socket.socket):
             raise TypeError('The parameter should be a socket object')
@@ -40,29 +42,35 @@ class Sockets(object):
         recvData = 'failedRecv'
 
         try:
-            recvData = sock.recv(1024).decode('utf-8')
-        except:
+            recvData = sock.recv(dataSize).decode('utf-8')
+        except Exception as e:
             print('Could not receive data')
+            print(e)
             sock.close()
         return recvData
 
 
 class Client(Sockets):
-    """A simple client socket"""
-    def __init__(self):
+    """A simple client socket."""
+    def __init__(self, targetIP, port, serverName='bhserver'):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.targetIP = targetIP
+        self.serverName = serverName
+        self.port = port
+        # SSL implementation
+        self.sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')
+        self.client = self.sslContext.wrap_socket(self.client,  server_hostname=self.serverName)
+        # self.client.setblocking(0)
 
 
-    def connect(self, targetIP, port, login=1):
+    def connect(self, login=1):
         """Connect to a specified ip addr and port"""
         try:
-            self.client.connect((targetIP, port))
-            print('Connected to {} {}'.format(targetIP, port))
-        except:
+            self.client.connect((self.targetIP, self.port))
+            print('Connected to {} {}'.format(self.serverName, self.port))
+        except Exception as e:
             print('Could not connect to a target.')
-
-        if login:
-            self.login()
+            print(e)
 
 
     def talk(self, singleMessage=''):
@@ -74,21 +82,12 @@ class Client(Sockets):
             raise TypeError('message should be a string')
 
         readSockets = [self.client]
-
         # Send and recieve data
         while True:
             readables, writables, exceptions = select(readSockets, [], [], 1)
-
             # Receive if a socket has data in the buffer
             if self.client in readables:
-
-                # Keep receiving until there is no more data in the buffer
-                recvData = ''
-                while self.client in readables:
-                    # recvData += self.client.recv(1024).decode('utf-8')
-                    recvData += self.recvData(self.client)
-                    readables, writables, exceptions = select([self.client], [], [], .5)
-
+                recvData = self.recvData(self.client)
                 # Print the assembled message
                 print(recvData, end='')
 
@@ -99,14 +98,25 @@ class Client(Sockets):
                 return
 
             # If no messeg provided get the message from a user and send it
-            message = input()
-            # message = input()
-
+            message = input(':')
+            # Return if quit or exit words are provided
             if message == 'quit' or message == 'exit':
                 self.client.close()
                 return
 
             self.sendData(self.client, message)
+
+            # Receive response from the command execution
+            recvData = ''
+
+            while True:
+                fragment = self.recvData(self.client)
+                recvData += fragment
+                if len(fragment) < 1024:
+                    break
+            # Print the output of the command
+            print(recvData)
+
 
 
     def login(self):
@@ -139,7 +149,9 @@ class Server(Sockets):
         self.port = port
         self.maxClients = maxClients
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.passowrd = password
+        # SSL implementation
+        self.sslContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self.sslContext.load_cert_chain(certfile='ssl/cert.pem', keyfile='ssl/key.pem', password='1234')
         # Proxy server optional attributes
         self.rhostAddr = rhostAddr
         self.rhostPort = rhostPort
@@ -162,6 +174,8 @@ class Server(Sockets):
 
         while True:
             clientSocket, clientAddr = self.server.accept()
+            #ssl wrap socket
+            clientSocket = self.sslContext.wrap_socket(clientSocket, server_side=True)
             # Initiate the thread for the client socket and pass a function or method to be executed
             clientThread = threading.Thread(target=handler, args=(clientSocket, clientAddr, behavior))
             # Start the thread
@@ -174,25 +188,28 @@ class Server(Sockets):
     def clientHandler(self, clientSocket, clientAddr, behavior):
         """One of the handler methods that simply echo client's messegaes"""
         # Authentication
-        if not self.serverLogin(clientSocket):
-            clientSocket.close()
-            return
+        # if not self.serverLogin(clientSocket):
+        #     clientSocket.close()
+        #     return
 
         # Keep talking data
         while True:
             # Send data
-            dataSent = self.sendData(clientSocket, '$:')
+            dataSent = self.sendData(clientSocket, '$')
             if not dataSent:
                 return
             # Receive data
             recvData = self.recvData(clientSocket)
-
             # Print data and keep talking or close connection
             if recvData:
                 # Execute some kind of a command
                 output = behavior(recvData)
-                self.sendData(clientSocket, output)
-                print('[*]:', output)
+                sentData = self.sendData(clientSocket, output)
+
+                if sentData:
+                    print('[*]:', output)
+                else:
+                    print('[!] Could not send data')
             else:
                 print('Connection with {} is closed'.format(clientAddr))
                 clientSocket.close()
@@ -200,6 +217,8 @@ class Server(Sockets):
 
 
     def proxyHandler(self, clientSocket, clientAddr, behavior=None):
+        """The method would launch a server in a proxy mode. The client connects
+        to the proxy and proxy would bridge the client and a remote server"""
         # Initialize a new connection to a rhost
         rhostSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         rhostSocket.connect((self.rhostAddr, self.rhostPort))
@@ -247,9 +266,6 @@ class Server(Sockets):
             output = 'Failed to execute the command.'
 
         return output
-
-
-
 
 
     def serverLogin(self, clientSocket):
