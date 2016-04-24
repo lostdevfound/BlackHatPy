@@ -60,7 +60,6 @@ class Client(Sockets):
         # SSL implementation
         self.sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')
         self.client = self.sslContext.wrap_socket(self.client,  server_hostname=self.serverName)
-        # self.client.setblocking(0)
 
 
     def connect(self, login=1):
@@ -118,21 +117,10 @@ class Client(Sockets):
             print(recvData)
 
 
-
-    def login(self):
-        """The method get's the input from the user for the password"""
-        recvData = self.recvData(self.client)
-        print(recvData, end='')
-        # Get a user password input
-        password = input('')
-
-        if password:
-            self.sendData(self.client, password)
-
-
 class Server(Sockets):
     """Simpel server"""
-    def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, password=123456, rhostAddr=None, rhostPort=None):
+    def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, password=123456, rhostAddr=None,
+                rhostPort=None, rhostServerName='bhserver'):
         if not isinstance(port, int):
             raise TypeError('The port parameter is an integer type')
 
@@ -155,6 +143,7 @@ class Server(Sockets):
         # Proxy server optional attributes
         self.rhostAddr = rhostAddr
         self.rhostPort = rhostPort
+        self.rhostServerName = rhostServerName
 
 
     def listen(self, handler, behavior='None'):
@@ -186,12 +175,7 @@ class Server(Sockets):
 
 
     def clientHandler(self, clientSocket, clientAddr, behavior):
-        """One of the handler methods that simply echo client's messegaes"""
-        # Authentication
-        # if not self.serverLogin(clientSocket):
-        #     clientSocket.close()
-        #     return
-
+        """One of the client handler methods"""
         # Keep talking data
         while True:
             # Send data
@@ -221,6 +205,9 @@ class Server(Sockets):
         to the proxy and proxy would bridge the client and a remote server"""
         # Initialize a new connection to a rhost
         rhostSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # SSL implementation
+        sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')
+        rhostSocket = sslContext.wrap_socket(rhostSocket,  server_hostname=self.rhostServerName)
         rhostSocket.connect((self.rhostAddr, self.rhostPort))
 
         readSockets = [rhostSocket, clientSocket]
