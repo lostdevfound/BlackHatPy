@@ -144,25 +144,22 @@ class Server(Sockets):
     If secure parameter is set to 1, the server will rely on a self-signed certificate.
     The server executes remote commands sent from the client.
     """
-    def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, pemPass=1234, rhostAddr=None,
+    def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, pemPass='1234', rhostAddr=None,
                 rhostPort=None, rhostServerName='bhserver', secure=0):
         if not isinstance(port, int):
-            raise TypeError('The port parameter is an integer type')
+            raise TypeError('The port parameter should be an integer type')
 
         if not isinstance(ipAddr, str):
-            raise TypeError('The ip parameter is a string')
+            raise TypeError('The ip parameter should be a string')
 
         if not isinstance(maxClients, int):
-            raise TypeError('maxClients parameter is an integer type')
-
-        if not isinstance(pemPass, int):
-            raise TypeError('passowrd parameter is an integer type')
+            raise TypeError('maxClients parameter should be an integer type')
 
         if not isinstance(secure, int) and not secure == 0 and not secure == 1:
             raise ValueError('secure parameter should be 0 or 1')
 
         if not isinstance(rhostServerName, str):
-            raise TypeError('rhostServerName is a str')
+            raise TypeError('rhostServerName should be a str')
 
 
         self.ipAddr = ipAddr
