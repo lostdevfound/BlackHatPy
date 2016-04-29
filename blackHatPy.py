@@ -18,6 +18,7 @@ class Sockets(object):
         """Send data from the socket"""
         if not isinstance(sock, socket.socket):
             raise TypeError('First argument should be a soket object')
+
         if not isinstance(data, str):
             raise TypeError('Second argument should be a string')
 
@@ -52,15 +53,29 @@ class Sockets(object):
 
 class Client(Sockets):
     """A simple client on SSL."""
-    def __init__(self, targetIP, port, serverName='bhserver'):
+    def __init__(self, targetIP, port, serverName='bhserver', secure=0):
+        if not isinstance(targetIP, str):
+            raise TypeError('targetIP should be a string')
+
+        if not isinstance(port, int):
+            raise TypeError('port parameter should be an int type')
+
+        if not isinstance(serverName, str):
+            raise TypeError('serverName parameter should be a str')
+
+        if not isinstance(secure, int):
+            raise TypeError('secure parameter should be a str')
+
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.targetIP = targetIP
         self.serverName = serverName
         self.port = port
-        # SSL implementation
-        self.sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')   # load trusted cert
-        # Create an SSL socket and set server_hostname to the server name from the certificate
-        self.client = self.sslContext.wrap_socket(self.client,  server_hostname=self.serverName)
+
+        if secure:
+            # SSL implementation
+            self.sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')   # load trusted cert
+            # Create an SSL socket and set server_hostname to the server name from the certificate
+            self.client = self.sslContext.wrap_socket(self.client,  server_hostname=self.serverName)
 
 
     def connect(self, login=1):
@@ -121,7 +136,7 @@ class Client(Sockets):
 class Server(Sockets):
     """Simpel server with SSL sockets"""
     def __init__(self, ipAddr='0.0.0.0', port=9999, maxClients=5, password=123456, rhostAddr=None,
-                rhostPort=None, rhostServerName='bhserver'):
+                rhostPort=None, rhostServerName='bhserver', secure=0):
         if not isinstance(port, int):
             raise TypeError('The port parameter is an integer type')
 
@@ -134,14 +149,22 @@ class Server(Sockets):
         if not isinstance(password, int):
             raise TypeError('passowrd parameter is an integer type')
 
+        if not isinstance(secure, int) and not secure == 0 and not secure == 1:
+            raise ValueError('secure parameter should be 0 or 1')
+
         self.ipAddr = ipAddr
         self.port = port
         self.maxClients = maxClients
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # SSL implementation
-        self.sslContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)   # Create context for client auth
-        # Load server's certificate and its private key, the password to unpack pem file is 1234
-        self.sslContext.load_cert_chain(certfile='ssl/cert.pem', keyfile='ssl/key.pem', password='1234')
+        self.secure = secure
+
+        # Use SSL socket if secure is set to 1
+        if self.secure:
+            # SSL implementation
+            self.sslContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)   # Create context for client auth
+            # Load server's certificate and its private key, the password to unpack pem file is 1234
+            self.sslContext.load_cert_chain(certfile='ssl/cert.pem', keyfile='ssl/key.pem', password='1234')
+
         # Proxy server optional attributes
         self.rhostAddr = rhostAddr
         self.rhostPort = rhostPort
@@ -165,8 +188,11 @@ class Server(Sockets):
 
         while True:
             clientSocket, clientAddr = self.server.accept()
-            #ssl wrap socket
-            clientSocket = self.sslContext.wrap_socket(clientSocket, server_side=True)
+
+            # SSL wrap socket if self.secure is 1
+            if self.secure:
+                clientSocket = self.sslContext.wrap_socket(clientSocket, server_side=True)
+
             # Initiate the thread for the client socket and pass a function or method to be executed
             clientThread = threading.Thread(target=handler, args=(clientSocket, clientAddr, behavior))
             # Start the thread
