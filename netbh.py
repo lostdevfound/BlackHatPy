@@ -26,11 +26,11 @@ parser.add_argument('-pp',  '--pemPass',   default='1234',     type=str, help='P
 # Handler picks an API method which will handle the client connections.
 parser.add_argument('-ha',  '--handler',   default='clientHandler', type=str, help='the method for handleing clients connections')
 # The behavior args picks optional methods for processing the client's recv data
-parser.add_argument('-b',   '--behavior',  default='execute', type=str, help='the method for processing the messages from clients')
+parser.add_argument('-b',   '--behavior',  default='execute',  type=str, help='the method for processing the messages from clients')
 
 args = parser.parse_args()
 
-# Check if a server mode and its flags are provided
+# Check the mode and flags provided
 if args.mode == 'server':
 
     if args.ipAddress != '':
@@ -39,9 +39,9 @@ if args.mode == 'server':
 
         # Set the connection handler and behavior
         if args.handler == 'clientHandler' and args.behavior == 'execute':
-            if args.secure:
-                print('The server uses SSL.')
             print('\u2622 server mode: listening on port {}'.format(args.port))
+            if args.secure:
+                print('\u2622 The server uses SSL.')
             server.listen(handler=server.clientHandler, behavior=server.execute)
 
     else:
@@ -53,17 +53,18 @@ elif args.mode == 'client':
 
     if args.ipAddress != '':
 
-        if (args.secure):
-            print('make sure the pem self-signed cert is setup.')
-
         print('\u2622 client mode: Connecting to {} {}'.format(args.ipAddress, args.port) )
+
+        if (args.secure):
+            print('\u2622 make sure the pem self-signed cert is setup.')
+
         client = bh.Client(targetIP=args.ipAddress, port=args.port, serverName=args.serverName, secure=args.secure)
         client.connect()
 
-        if args.command != '':  # if command is provided in the shell run a single command and exit
+        if args.command != '':  # if command is provided in the shell, run a single command and exit
             client.talk(args.command)
         else:
-            client.talk()   # enter interactive shell
+            client.talk()   # enter in an interactive shell
 
     else:
         parser.print_help()
