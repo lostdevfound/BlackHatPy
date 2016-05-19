@@ -4,7 +4,7 @@ import argparse
 import sys
 import craftServer as bh
 
-"""This is a command line tool that uses blackHatPy module to launch server, proxy server or client services.
+"""This is a command line tool that uses craftServer.py to launch server, proxy server or client services.
 All of the services can use encrypted SSL connection and self-signed certs for authentication.
 """
 
