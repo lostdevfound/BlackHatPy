@@ -1,4 +1,4 @@
-# BlackHatPy
+# craftServer
 python3.5
 
 A repository inspired by Justin Seitz's book Black Hat Python
