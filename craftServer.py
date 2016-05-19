@@ -5,7 +5,7 @@ from select import select
 import types
 import subprocess
 import ssl
-
+# API for a simple server and client
 # Since the server can use SSL sockets and relies on self signed certificate and a private key
 # The user should generate a pem cert and a private key
 # The pem self signed cert can be created by running openssl command as follows:
