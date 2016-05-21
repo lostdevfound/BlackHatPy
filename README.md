@@ -9,6 +9,14 @@ The communication between a server and a cliet uses optional SSL with self-signe
 
 In order to run the tool from the shell and see the help:
 ```
-python bhnet.py  -h
+python netbh.py  -h
 ```
 
+To run the SSL server with interactive shell simulation:
+```
+python netbh.py server -ip 0.0.0.0 -p 9999
+```
+To run the SSL client:
+```
+python netbh.py clint -ip localhost -p 9999
+```
