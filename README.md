@@ -14,9 +14,16 @@ python netbh.py  -h
 
 To run the SSL server with interactive shell simulation:
 ```
-python netbh.py server -ip 0.0.0.0 -p 9999
+python netbh.py server -ip 0.0.0.0 -p 9999 -s 1
 ```
 To run the SSL client:
 ```
-python netbh.py clint -ip localhost -p 9999
+python netbh.py client -ip localhost -p 9999 -s 1
 ```
+No SSL server and client:
+```
+python netbh.py server -ip 0.0.0.0 -p 9999      // to run the server
+python netbh.py client -ip localhost -p 9999    // to run the client
+```
+
+Note: for testing purposes the client and the server use the same cert and key

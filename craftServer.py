@@ -5,12 +5,27 @@ from select import select
 import types
 import subprocess
 import ssl
+import os
+
 # API for a simple server and client
 # Since the server can use SSL sockets and relies on self signed certificate and a private key
 # The user should generate a pem cert and a private key
 # The pem self signed cert can be created by running openssl command as follows:
 # openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 350
 
+genericCert = 'cert.pem'
+genericKey = 'key.pem'
+TRUSTED_CERTS_PATH = 'ssl'
+
+TRUSTED_CERTS = os.path.join(TRUSTED_CERTS_PATH, genericCert)
+
+CLIENT_CERTKEY = os.path.join(TRUSTED_CERTS_PATH, genericKey)
+CLIENT_CERTFILE = os.path.join(TRUSTED_CERTS_PATH, genericCert)
+
+SERVER_CERTKEY = os.path.join(TRUSTED_CERTS_PATH, genericKey)
+SERVER_CERTFILE = os.path.join(TRUSTED_CERTS_PATH, genericCert)
+
+print(TRUSTED_CERTS)
 class Sockets(object):
     """A base class to send and recv data"""
     def __init__(self):
@@ -58,7 +73,7 @@ class Client(Sockets):
     """A simple client. If server is running in SSL mode. The client should be initialized
     with secure parameter set to 1. The client sends the remote commands to the server
     """
-    def __init__(self, targetIP, port, serverName='bhserver', secure=0):
+    def __init__(self, targetIP, port, serverName='bhserver', secure=0, pemPass='1234'):
         if not isinstance(targetIP, str):
             raise TypeError('targetIP should be a string')
 
@@ -76,12 +91,14 @@ class Client(Sockets):
         self.serverName = serverName
         self.port = port
         self.secure = secure
+        self.pemPass = pemPass
 
         if self.secure:
             # SSL implementation
-            self.sslContext = ssl.create_default_context(cafile='ssl/cert.pem', capath='ssl')   # load trusted cert
+            self.sslContext = ssl.create_default_context(cafile=TRUSTED_CERTS, capath=TRUSTED_CERTS_PATH)   # load trusted cert
+            self.sslContext.load_cert_chain(certfile=CLIENT_CERTFILE, keyfile=CLIENT_CERTKEY, password=pemPass)   # load self identificating certs
             # Create an SSL socket and set server_hostname to the server name from the certificate
-            self.client = self.sslContext.wrap_socket(self.client,  server_hostname=self.serverName)
+            self.client = self.sslContext.wrap_socket(self.client,  server_hostname=self.serverName )
 
 
     def connect(self, login=1):
@@ -172,9 +189,11 @@ class Server(Sockets):
         # Use SSL socket if secure is set to 1
         if self.secure:
             # SSL implementation
-            self.sslContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)   # Create context for client auth
+            self.sslContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH, capath=TRUSTED_CERTS_PATH, cafile=TRUSTED_CERTS)   # Create default context and load trusted certs
             # Load server's certificate and its private key, the password to unpack pem file is 1234
-            self.sslContext.load_cert_chain(certfile='ssl/cert.pem', keyfile='ssl/key.pem', password=self.pemPass)
+            self.sslContext.load_cert_chain(certfile=SERVER_CERTFILE, keyfile=SERVER_CERTKEY, password=self.pemPass)
+            # force the client to provide its cert
+            self.sslContext.verify_mode=ssl.CERT_REQUIRED
 
         # Proxy server optional attributes
         self.rhostAddr = rhostAddr
