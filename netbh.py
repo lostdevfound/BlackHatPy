@@ -39,9 +39,9 @@ if args.mode == 'server':
 
         # Set the connection handler and behavior
         if args.handler == 'clientHandler' and args.behavior == 'execute':
-            print('\u2622 server mode: listening on port {}'.format(args.port))
+            print('### server mode: listening on port {}'.format(args.port))
             if args.secure:
-                print('\u2622 The server uses SSL.')
+                print('### The server uses SSL.')
             server.listen(handler=server.clientHandler, behavior=server.execute)
 
     else:
@@ -53,10 +53,10 @@ elif args.mode == 'client':
 
     if args.ipAddress != '':
 
-        print('\u2622 client mode: Connecting to {} {}'.format(args.ipAddress, args.port) )
+        print('### client mode: Connecting to {} {}'.format(args.ipAddress, args.port) )
 
         if (args.secure):
-            print('\u2622 make sure the pem self-signed cert is setup.')
+            print('### make sure the pem self-signed cert is setup.')
 
         client = bh.Client(targetIP=args.ipAddress, port=args.port, serverName=args.serverName, secure=args.secure)
         client.connect()
